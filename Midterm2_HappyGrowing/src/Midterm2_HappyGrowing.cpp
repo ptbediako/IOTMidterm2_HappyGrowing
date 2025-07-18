@@ -84,9 +84,13 @@ void loop() {
   dateMMDD= dateTime.substring(4,9); //for date that displays only month and day (no day of week or year)
 //  soilMoistVal = analogRead(A0);
 
-    startPixel=0;
-    endPixel= 11;
-    pixelFill(startPixel, endPixel, blue);
+  startPixel=0;
+  endPixel= 5;
+  pixelFill(startPixel, endPixel, green);
+
+  startPixel=6;
+  endPixel= 11;
+  pixelFill(startPixel, endPixel, red);
 
   tempC=bme.readTemperature();
   tempF=(tempC*1.8)+32;
@@ -94,8 +98,8 @@ void loop() {
   pressPA= bme.readPressure();
   pressInHg=(pressPA * 0.0002952998751);
   
-  if(millis()-lastTime>4000){
-    lastTime = millis ();
+  //if(millis()-lastTime>4000){
+    //lastTime = millis ();
 
     display.setTextSize(1);
     display.setTextColor(WHITE);
@@ -109,7 +113,7 @@ void loop() {
     // display.setTextColor(WHITE);
     // display.setCursor(0,0);
     // display.clearDisplay();
-    // display.printf("Plant Conditions on\n%s at %s\nSoil Moisture: %i\n",dateMMDD.c_str(), timeHHMM.c_str(), soilMoistVal);
+    // display.printf("It is %s\n at %s\nSoil Dryness: %i\nDust Concentration: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilMoistVal);
     // //Serial.printf("Soil Moisture on %s at %s: %i\n",dateMMDD.c_str(), timeHHMM.c_str(), soilMoistVal);
     // display.display();
 
@@ -121,39 +125,41 @@ void loop() {
     display.display();
     delay(2000);
 
-    if ((tempF=73)){
+    //if ((tempF=73)){
       // display.setTextSize(2);
       // display.clearDisplay();
       // display.printf("I'm comfy");
       // display.display();
       //displayMessage(2,"I'm comfy");
-      tempGood=1;
-    }
+    //  tempGood=1;
+    //}
+  
     if ((tempF>73)){
-      display.setTextSize(3);
-          display.setTextColor(WHITE);
-          display.setCursor(0,0);
+      display.setTextSize(2);
+      display.setTextColor(WHITE);
+      display.setCursor(0,0);
       display.clearDisplay();
       display.printf("I'm hot!");
       display.display();
+      delay(2000);
       //displayMessage(3,"I'm hot!");
-          delay(2000);
     }
+
     if ((tempF<73)){
-      display.setTextSize(3);
-          display.setTextColor(WHITE);
-          display.setCursor(0,0);
+      display.setTextSize(2);
+      display.setTextColor(WHITE);
+      display.setCursor(0,0);
       display.clearDisplay();
       display.printf("I'm cold!");
       display.display();
+      delay(2000);
       //displayMessage(3,"I'm cold!");
-          delay(2000);
     }
-  }
+ // }
 
 }
 
-
+/*
 void displayMessage(int textSize, char message[]){
   display.setTextSize(textSize);
   display.setTextColor(WHITE);
@@ -161,9 +167,8 @@ void displayMessage(int textSize, char message[]){
   display.clearDisplay();
   display.printf(message);
   display.display();
-
 }
-
+*/
 void pixelFill(int startPixel, int endPixel, int color){
   for(pix=startPixel; pix<=endPixel; pix=pix+1){
     pixel.setPixelColor(pix, color);
