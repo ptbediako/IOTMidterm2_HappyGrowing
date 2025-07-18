@@ -17,17 +17,18 @@
 #include "neopixel.h"
 
 //Soil Moisture Sensor Variables
-int soilMoistVal;
+int soilDryness;
 
 //SEEED Dust Sensor Variables
 
 //BME Variables
 float tempC, tempF, humidRH, pressPA, pressInHg;
-const char DEGREE=0XF8;
+const char DEGREE=0xF8;
+const char PCT=0x25;
 const int BME280=0x76;
 bool status;
 Adafruit_BME280 bme;
-bool tempGood, humidGood;
+bool tempGood, humidGood, soilGood;
 
 //OLED Variables
 const int OLEDSCRN=0x3c;
@@ -82,15 +83,11 @@ void loop() {
   dateTime= Time.timeStr(); //current date and time
   timeHHMM = dateTime.substring(11,16); //for time that displays only hours and mins (no seconds)
   dateMMDD= dateTime.substring(4,9); //for date that displays only month and day (no day of week or year)
-//  soilMoistVal = analogRead(A0);
+//  soilDryness = analogRead(A0);
 
-  startPixel=0;
-  endPixel= 5;
-  pixelFill(startPixel, endPixel, green);
-
-  startPixel=6;
-  endPixel= 11;
-  pixelFill(startPixel, endPixel, red);
+  // startPixel=6;
+  // endPixel= 11;
+  // pixelFill(startPixel, endPixel, red);
 
   tempC=bme.readTemperature();
   tempF=(tempC*1.8)+32;
@@ -105,61 +102,88 @@ void loop() {
     display.setTextColor(WHITE);
     display.setCursor(0,0);
     display.clearDisplay();
-    display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70 RH\nWater every 3-5 days.",DEGREE);
+    display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
     display.display();
-    delay(2000);
+    delay(5000);
 
     // display.setTextSize(1);
     // display.setTextColor(WHITE);
     // display.setCursor(0,0);
     // display.clearDisplay();
-    // display.printf("It is %s\n at %s\nSoil Dryness: %i\nDust Concentration: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilMoistVal);
-    // //Serial.printf("Soil Moisture on %s at %s: %i\n",dateMMDD.c_str(), timeHHMM.c_str(), soilMoistVal);
+    // display.printf("It is %s\n at %s\nSoil Dryness: %i\nDust Concentration: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness);
+    // //Serial.printf("Soil Dryness on %s at %s: %i\n",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness);
     // display.display();
 
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(0,0);
     display.clearDisplay();
-    display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f RH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH,pressInHg);
+    display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
     display.display();
-    delay(2000);
+    delay(5000);
 
-    //if ((tempF=73)){
-      // display.setTextSize(2);
-      // display.clearDisplay();
-      // display.printf("I'm comfy");
-      // display.display();
-      //displayMessage(2,"I'm comfy");
-    //  tempGood=1;
-    //}
+    // if ((tempF<70)&&(tempF>71.5)){
+    //   // display.setTextSize(2);
+    //   // display.clearDisplay();
+    //   // display.printf("I'm comfy");
+    //   // display.display();
+    //   //displayMessage(2,"I'm comfy");
+    //   tempGood=1;
+      
+    //   startPixel=0;
+    //   endPixel= 5;
+    //   pixelFill(startPixel, endPixel, green);
+    //   delay(5000);
+    // }
   
-    if ((tempF>73)){
-      display.setTextSize(2);
-      display.setTextColor(WHITE);
-      display.setCursor(0,0);
-      display.clearDisplay();
-      display.printf("I'm hot!");
-      display.display();
-      delay(2000);
-      //displayMessage(3,"I'm hot!");
+    if ((tempF>71.5)){     
+      displayMessage(2,"I'm hot!");
+      delay(5000);
     }
 
-    if ((tempF<73)){
-      display.setTextSize(2);
-      display.setTextColor(WHITE);
-      display.setCursor(0,0);
-      display.clearDisplay();
-      display.printf("I'm cold!");
-      display.display();
-      delay(2000);
-      //displayMessage(3,"I'm cold!");
+    if ((tempF<70.5)){ 
+      displayMessage(2,"I'm cold!");
+      delay(5000);
     }
+
+    if ((humidRH <50)){
+      displayMessage(2, "I need\nhumidity");
+      delay(5000);
+    }
+    if ((humidRH >70)){
+      displayMessage(2, "It's too humid");
+      delay(5000);
+    }
+
+    if((soilDryness>2500)){
+      displayMessage(2, "I need\n water");
+    }
+    if((soilDryness<1700)){
+      displayMessage(2, "I'm\n drowning!");
+    }
+
+    
+    tempGood=1;
+    humidGood=0;
+    soilGood=1;
+  
+  if ((tempGood == 1) && (humidGood ==1) && (soilGood == 1)){
+        startPixel=0;
+        endPixel= 5;
+        pixelFill(startPixel, endPixel, green);
+        displayMessage(2, "I'm happy");
+  }
+
+  else{
+    startPixel=6;
+    endPixel= 11;
+    pixelFill(startPixel, endPixel, red);
+  }
  // }
 
 }
 
-/*
+
 void displayMessage(int textSize, char message[]){
   display.setTextSize(textSize);
   display.setTextColor(WHITE);
@@ -168,7 +192,7 @@ void displayMessage(int textSize, char message[]){
   display.printf(message);
   display.display();
 }
-*/
+
 void pixelFill(int startPixel, int endPixel, int color){
   for(pix=startPixel; pix<=endPixel; pix=pix+1){
     pixel.setPixelColor(pix, color);
