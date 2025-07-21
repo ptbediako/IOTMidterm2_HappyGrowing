@@ -21,15 +21,29 @@
 #include "neopixel.h"
 #include "credentials.h"
 #include "JsonParserGeneratorRK.h"
+// #include "../lib/Adafruit_MQTT/src/Adafruit_MQTT.h"
+// #include "../lib/Adafruit_MQTT/src/Adafruit_MQTT_SPARK.h"
+// #include "../lib/Grove_Air_quality_Sensor/src/Air_Quality_Sensor.h"
+// #include "../lib/Adafruit_BME280/src/Adafruit_BME280.h"
+// #include "../lib/Adafruit_SSD1306/src/Adafruit_SSD1306.h"
+// #include "../lib/neopixel/src/neopixel.h"
 
 //Subscribe & Publish
 TCPClient TheClient;
-Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_KEY); 
-Adafruit_MQTT_Publish pubFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/Midterm2_EnvrDashboard");
-Adafruit_MQTT_Subscribe subFeed =Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/buttononoff");
+Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_KEY);  
+Adafruit_MQTT_Publish hgSoilFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/HGSoilFeed");
+Adafruit_MQTT_Publish hgAirFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/HGAirQualFeed");
+Adafruit_MQTT_Publish hgTempFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/HGTempFeed");
+Adafruit_MQTT_Publish hgHumidFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/HGHumidityFeed");
+Adafruit_MQTT_Publish hgPressFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/HGAirPressureFeed");
+//Adafruit_MQTT_Subscribe subFeed = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/buttononoff");
+Adafruit_MQTT_Subscribe hgButtonSub = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/hgbuttonsub");
+
 float pubValue;
+int hgButtonPress; //replaced subValue
 void MQTT_connect();
 bool MQTT_ping();
+unsigned int lastPubTime;
 
 //Soil Moisture Sensor Variables
 int soilDryness;
@@ -47,14 +61,14 @@ const char PCT=0x25;
 const int BME280=0x76;
 bool status;
 Adafruit_BME280 bme;
-bool tempGood, humidGood, soilGood;
+bool tempProblem, humidProblem, soilProblem;
 
 //OLED Variables
 const int OLEDSCRN=0x3c;
 const int OLED_RESET = -1;
 Adafruit_SSD1306 display(OLED_RESET);
 int displayMode;
-int lastDisplayTime;
+unsigned int lastDisplayTime;
 
 //Neopixel variables
 const int PIXELCOUNT=12;
@@ -65,7 +79,6 @@ void pixelFill(int startPixel, int endPixel, int color);
 
 //Water Pump
 const int WATERPIN=D16;
-int subValue;
 
 //Timestamp variables
 String dateTime;
@@ -75,18 +88,7 @@ const int MDTTIME = -6;
 const int MSTTIME = -7;
 unsigned int lastTime;
 
-
-struct SensorData {
-  int airQuality;
-  int soilDryness;
-  float tempF;
-  float humidRH;
-  float pressInHg;
-};
-SensorData hgSensors;
-void createEventPayLoad(SensorData hgSensors);
-
-SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_MODE(AUTOMATIC);
 
 void displayMessage(int textSize, char message[]);
 
@@ -103,40 +105,40 @@ void setup() {
   }
   Serial.printf("\n\n");
 
-  mqtt.subscribe(&subFeed);
+  mqtt.subscribe(&hgButtonSub);
   
   Time.zone(MDTTIME);
   Particle.syncTime();
 
-  status = bme.begin(BME280);
-  if (status == false){
-    Serial.printf("BME280 at address 0x%02x failed to start",BME280);
-  }
+   status = bme.begin(BME280);
+   if (status == false){
+     Serial.printf("BME280 at address 0x%02x failed to start",BME280);
+   }
 
-  display.begin(SSD1306_SWITCHCAPVCC,OLEDSCRN);
-  display.display();
-  display.clearDisplay();
-
-  pixel.begin();
-  pixel.setBrightness(35);
-  pixel.show();
-
-  Serial.printf("Waiting for sensor to intitialize...");
-  delay(20000);
-
-  if(sensor.init()){
-    Serial.printf("Sensor ready.");
-  }
-  else{
-    Serial.printf("Sensor ERROR");
-  }
+   display.begin(SSD1306_SWITCHCAPVCC,OLEDSCRN);
+   display.setTextColor(WHITE);
+   display.display();
+   display.clearDisplay();
 
 
-  //digitalWrite(WATERPIN,LOW);
+   pixel.begin();
+   pixel.setBrightness(35);
+   pixel.show();
+
+   Serial.printf("Waiting for sensor to intitialize...");
+   delay(20000);
+
+   if(sensor.init()){
+     Serial.printf("Sensor ready.");
+   }
+   else{
+     Serial.printf("Sensor ERROR");
+   }
+
   pinMode(WATERPIN,OUTPUT);
 }
 
-
+/***************************************************************/
 void loop() {
   MQTT_connect();
   MQTT_ping();
@@ -147,88 +149,112 @@ void loop() {
   soilDryness = analogRead(SOILPIN);
   airQuality=sensor.slope();
 
-  tempC=bme.readTemperature();
-  tempF=(tempC*1.8)+32;
-  humidRH=bme.readHumidity();
-  pressPA= bme.readPressure();
-  pressInHg=(pressPA * 0.0002952998751);
+   tempC=bme.readTemperature();
+   tempF=(tempC*1.8)+32;
+   humidRH=bme.readHumidity();
+   pressPA= bme.readPressure();
+   pressInHg=(pressPA * 0.0002952998751);
   
   Adafruit_MQTT_Subscribe *subscription;
   while ((subscription = mqtt.readSubscription(100))) {
-    if (subscription == &subFeed) {
-      subValue = atoi((char *)subFeed.lastread);
-                  
-      if(subValue==1){
-      digitalWrite(WATERPIN,HIGH);
-      }
-      else{
-      digitalWrite(WATERPIN,LOW);
-      }
-    }
-      Serial.printf("HG Water Button %i\n",subValue);
-    }
+    if (subscription == &hgButtonSub) {
+      hgButtonPress = atoi((char *)hgButtonSub.lastread);
 
-  if((millis()-lastTime)>10000){
+       if(hgButtonPress==1){
+       digitalWrite(WATERPIN,HIGH);
+       }
+       else{
+       digitalWrite(WATERPIN,LOW);
+       }
+     }
+      Serial.printf("HG Water Button %i\n",hgButtonPress);
+  }
+
+   if((millis()-lastPubTime)>20000){
     if(mqtt.Update()){
-      createEventPayLoad(hgSensors);
-      //pubFeed.publish(airQuality);
-      //pubFeed.publish(soilDryness);
-      //pubFeed.publish(tempF);
-      //pubFeed.publish(humidRH);
-      //pubFeed.publish(pressInHg);
-    }
-  }
+      // createEventPayLoad(hgSensors);
+      hgSoilFeed.publish(soilDryness,1);
+      hgAirFeed.publish(airQuality,1);
+      hgTempFeed.publish(tempF,1);
+      hgHumidFeed.publish(humidRH,1);
+      hgPressFeed.publish(pressInHg,1);
+     }
+    lastPubTime = millis();
+   }
   
-//int displayMode;
-//int lastDisplayTime;
+// //int displayMode;
+// //int lastDisplayTime;
 
+// displayMode=1;
+// if ((millis()-lastDisplayTime)>2000){
+//   displayMode++;
+//    lastDisplayTime = millis();
+// }
 
-if ((millis()-lastTime)>2000){
-  displayMode++;
+//   if ((displayMode=1)){
+     display.clearDisplay();
+     display.setCursor(0,0);
+     display.setTextSize(1);
+     display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
+     display.display();
+     delay(500);
+//     //displayMode= displayMode+1;
+//   }
 
-  if ((displayMode=1)){
+//   if((displayMode=2)){
     display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0,0);
-    display.clearDisplay();
-    display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
-    display.display();
-    //delay(500);
-    //displayMode= displayMode+1;
-  }
-
-  if((displayMode=2)){
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
     display.setCursor(0,0);
     display.clearDisplay();
     // display.printf("Screen2 Test Print");
     display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
     display.display();
-    //delay(500);
-    //displayMode=displayMode+1;
-  }
+    delay(500);
+//     //displayMode=displayMode+1;
+//   }
 
-  if((displayMode=3)){
+//   if((displayMode=3)){
      display.setTextSize(1);
-     display.setTextColor(WHITE);
      display.setCursor(0,0);
      display.clearDisplay();
-     display.printf("%s\n at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness,airQuality);
+     display.printf("%s at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness,airQuality);
      display.display();
-     //delay(500);
-     //displayMode=displayMode+1;
-  }
-}
-/*
-    // if ((tempF<70)&&(tempF>71.5)){
-    //   // display.setTextSize(2);
-    //   // display.clearDisplay();
-    //   // display.printf("I'm comfy");
-    //   // display.display();
-    //   //displayMessage(2,"I'm comfy");
-    //   tempGood=1;
-      
+     delay(500);
+//      //displayMode=displayMode+1;
+//   }
+ 
+    if ((tempF>71.5)){     
+      displayMessage(2,"I'm hot!");
+      tempProblem=1;
+      //delay(500);
+    }
+    if ((tempF<70.5)){ 
+      displayMessage(2,"I'm cold!");
+      tempProblem=1;
+      //delay(500);
+    }
+
+    if ((humidRH <50)){
+      displayMessage(2, "The air is\ntoo dry!");
+      humidProblem=1;
+      //delay(500);
+    }
+    if ((humidRH >70)){
+      displayMessage(2, "It's too\nhumid!");
+      humidProblem=1;
+      //delay(500);
+    }
+
+    if((soilDryness>2500)){
+      displayMessage(2, "The soil\nis too\ndry!");
+      soilProblem=1;
+      //delay(500);
+    }
+    if((soilDryness<1700)){
+      displayMessage(2, "I'm\ndrowning!");
+      soilProblem=1;
+      //delay(500);
+    }
+    
     Serial.printf("(Sensor value: %i)\n",airQuality);
 
     if (airQuality == AirQualitySensor::FORCE_SIGNAL){
@@ -246,54 +272,22 @@ if ((millis()-lastTime)>2000){
     else if (airQuality == AirQualitySensor::FRESH_AIR) {
         displayMessage(1, "Fresh air");
     }
-  
-    if ((tempF>71.5)){     
-      displayMessage(2,"I'm hot!");
-      //delay(500);
-    }
-    if ((tempF<70.5)){ 
-      displayMessage(2,"I'm cold!");
-      //delay(500);
-    }
 
-    if ((humidRH <50)){
-      displayMessage(2, "The air is\ntoo dry!");
-      //delay(500);
-    }
-    if ((humidRH >70)){
-      displayMessage(2, "It's too\nhumid!");
-      //delay(500);
-    }
-
-    if((soilDryness>2500)){
-      displayMessage(2, "The soil\nis too\ndry!");
-      //delay(500);
-    }
-    if((soilDryness<1700)){
-      displayMessage(2, "I'm\ndrowning!");
-      //delay(500);
-    }
-
-    
-    tempGood=1;
-    humidGood=0;
-    soilGood=1;
-  
-  if ((tempGood == 1) && (humidGood ==1) && (soilGood == 1)){
+  if ((tempProblem == 0) && (humidProblem ==0) && (soilProblem == 0)){
         startPixel=0;
         endPixel= 5;
         pixelFill(startPixel, endPixel, green);
-        displayMessage(2, "I'm happy");
+        //displayMessage(2, "I'm happy");
   }
-
   else{
     startPixel=6;
     endPixel= 11;
     pixelFill(startPixel, endPixel, red);
   }
- }*/
- lastTime = millis ();
+// }
+
   //}
+
 }
 
 /************************************************************/
@@ -352,17 +346,17 @@ bool MQTT_ping() {
   return pingStatus;
 }
 
-/************************************************************/
-void createEventPayLoad(SensorData hgSensors){
-  JsonWriterStatic<256> jw;
-  {
-    JsonWriterAutoObject obj(&jw);
+// /************************************************************/
+//  void createEventPayLoad(SensorData happyGrow){
+//    JsonWriterStatic<256> jw;
+//   {
+//     JsonWriterAutoObject obj(&jw);
 
-    jw.insertKeyValue("Air Quality", airQuality);
-    jw.insertKeyValue("Soil Dryness", soilDryness);
-    jw.insertKeyValue("Temperature(F)", tempF);
-    jw.insertKeyValue("Humidity", humidRH);
-    jw.insertKeyValue("Air Pressure(Hg)", pressInHg);
-  }
-  pubFeed.publish(jw.getBuffer());
-}
+//     jw.insertKeyValue("Air Quality", happyGrow.airQuality);
+//     jw.insertKeyValue("Soil Dryness", happyGrow.soilDryness);
+//     jw.insertKeyValue("Temperature(F)", happyGrow.tempF);
+//     jw.insertKeyValue("Humidity", happyGrow.humidRH);
+//     jw.insertKeyValue("Air Pressure(Hg)", happyGrow.pressInHg);
+//   }
+//   pubFeed.publish(jw.getBuffer());
+// }
