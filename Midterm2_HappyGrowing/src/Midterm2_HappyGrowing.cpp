@@ -177,7 +177,16 @@ void loop() {
       //pubFeed.publish(humidRH);
       //pubFeed.publish(pressInHg);
     }
-      
+  }
+  
+//int displayMode;
+//int lastDisplayTime;
+
+
+if ((millis()-lastTime)>2000){
+  displayMode++;
+
+  if ((displayMode=1)){
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(0,0);
@@ -185,7 +194,10 @@ void loop() {
     display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
     display.display();
     //delay(500);
+    //displayMode= displayMode+1;
+  }
 
+  if((displayMode=2)){
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(0,0);
@@ -194,15 +206,21 @@ void loop() {
     display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
     display.display();
     //delay(500);
+    //displayMode=displayMode+1;
+  }
 
+  if((displayMode=3)){
      display.setTextSize(1);
      display.setTextColor(WHITE);
      display.setCursor(0,0);
      display.clearDisplay();
-     display.printf("It is %s\n at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), airQuality);
+     display.printf("%s\n at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness,airQuality);
      display.display();
      //delay(500);
-
+     //displayMode=displayMode+1;
+  }
+}
+/*
     // if ((tempF<70)&&(tempF>71.5)){
     //   // display.setTextSize(2);
     //   // display.clearDisplay();
@@ -273,9 +291,9 @@ void loop() {
     endPixel= 11;
     pixelFill(startPixel, endPixel, red);
   }
- // }*/
+ }*/
  lastTime = millis ();
-  }
+  //}
 }
 
 /************************************************************/
