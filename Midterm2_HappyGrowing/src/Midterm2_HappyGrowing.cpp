@@ -22,9 +22,11 @@
 #include "credentials.h"
 #include "JsonParserGeneratorRK.h"
 
+//Subscribe & Publish
 TCPClient TheClient;
 Adafruit_MQTT_SPARK mqtt(&TheClient,AIO_SERVER,AIO_SERVERPORT,AIO_USERNAME,AIO_KEY); 
 Adafruit_MQTT_Publish pubFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/Midterm2_EnvrDashboard");
+Adafruit_MQTT_Subscribe subFeed =Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/buttononoff");
 float pubValue;
 void MQTT_connect();
 bool MQTT_ping();
@@ -37,7 +39,6 @@ const int SOILPIN=A0;
 const int AIRQUALPIN=A1;
 int airQuality;
 AirQualitySensor sensor(AIRQUALPIN);
-
 
 //BME Variables
 float tempC, tempF, humidRH, pressPA, pressInHg;
@@ -55,6 +56,17 @@ Adafruit_SSD1306 display(OLED_RESET);
 int displayMode;
 int lastDisplayTime;
 
+//Neopixel variables
+const int PIXELCOUNT=12;
+int pix;
+int startPixel, endPixel, color;
+Adafruit_NeoPixel pixel (PIXELCOUNT,SPI1,WS2812B);
+void pixelFill(int startPixel, int endPixel, int color);
+
+//Water Pump
+const int WATERPIN=D16;
+int subValue;
+
 //Timestamp variables
 String dateTime;
 String timeHHMM; //formatted time var
@@ -63,12 +75,6 @@ const int MDTTIME = -6;
 const int MSTTIME = -7;
 unsigned int lastTime;
 
-//Neopixel variables
-const int PIXELCOUNT=12;
-int pix;
-int startPixel, endPixel, color;
-Adafruit_NeoPixel pixel (PIXELCOUNT,SPI1,WS2812B);
-void pixelFill(int startPixel, int endPixel, int color);
 
 struct SensorData {
   int airQuality;
@@ -90,6 +96,14 @@ void setup() {
   Serial.begin(9600);
   waitFor(Serial.isConnected,10000);
   
+  WiFi.on();
+  WiFi.connect();
+  while(WiFi.connecting()) {
+    Serial.printf(".");
+  }
+  Serial.printf("\n\n");
+
+  mqtt.subscribe(&subFeed);
   
   Time.zone(MDTTIME);
   Particle.syncTime();
@@ -116,6 +130,10 @@ void setup() {
   else{
     Serial.printf("Sensor ERROR");
   }
+
+
+  //digitalWrite(WATERPIN,LOW);
+  pinMode(WATERPIN,OUTPUT);
 }
 
 
@@ -135,21 +153,38 @@ void loop() {
   pressPA= bme.readPressure();
   pressInHg=(pressPA * 0.0002952998751);
   
+  Adafruit_MQTT_Subscribe *subscription;
+  while ((subscription = mqtt.readSubscription(100))) {
+    if (subscription == &subFeed) {
+      subValue = atoi((char *)subFeed.lastread);
+                  
+      if(subValue==1){
+      digitalWrite(WATERPIN,HIGH);
+      }
+      else{
+      digitalWrite(WATERPIN,LOW);
+      }
+    }
+      Serial.printf("HG Water Button %i\n",subValue);
+    }
 
-
-  if(millis()-lastTime>4000){
+  if((millis()-lastTime)>10000){
     if(mqtt.Update()){
       createEventPayLoad(hgSensors);
+      //pubFeed.publish(airQuality);
+      //pubFeed.publish(soilDryness);
+      //pubFeed.publish(tempF);
+      //pubFeed.publish(humidRH);
+      //pubFeed.publish(pressInHg);
     }
-    
-  
+      
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(0,0);
     display.clearDisplay();
     display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
     display.display();
-    delay(500);
+    //delay(500);
 
     display.setTextSize(1);
     display.setTextColor(WHITE);
@@ -158,7 +193,7 @@ void loop() {
     // display.printf("Screen2 Test Print");
     display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
     display.display();
-    delay(500);
+    //delay(500);
 
      display.setTextSize(1);
      display.setTextColor(WHITE);
@@ -166,7 +201,7 @@ void loop() {
      display.clearDisplay();
      display.printf("It is %s\n at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), airQuality);
      display.display();
-     delay(500);
+     //delay(500);
 
     // if ((tempF<70)&&(tempF>71.5)){
     //   // display.setTextSize(2);
@@ -183,8 +218,8 @@ void loop() {
       displayMessage(1,"Warning!\nExcessive\npollution!");
     }
     else if (airQuality == AirQualitySensor::HIGH_POLLUTION) {
-          Serial.printf("High pollution ");
-          displayMessage(1,"High\npollution");
+      Serial.printf("High pollution ");
+      displayMessage(1,"High\npollution");
     } 
     else if (airQuality == AirQualitySensor::LOW_POLLUTION) {
         Serial.printf("Low pollution ");
@@ -196,29 +231,29 @@ void loop() {
   
     if ((tempF>71.5)){     
       displayMessage(2,"I'm hot!");
-      delay(500);
+      //delay(500);
     }
     if ((tempF<70.5)){ 
       displayMessage(2,"I'm cold!");
-      delay(500);
+      //delay(500);
     }
 
     if ((humidRH <50)){
       displayMessage(2, "The air is\ntoo dry!");
-      delay(500);
+      //delay(500);
     }
     if ((humidRH >70)){
       displayMessage(2, "It's too\nhumid!");
-      delay(500);
+      //delay(500);
     }
 
     if((soilDryness>2500)){
       displayMessage(2, "The soil\nis too\ndry!");
-         delay(500);
+      //delay(500);
     }
     if((soilDryness<1700)){
       displayMessage(2, "I'm\ndrowning!");
-         delay(500);
+      //delay(500);
     }
 
     
