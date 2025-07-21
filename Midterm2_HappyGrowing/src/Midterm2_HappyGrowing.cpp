@@ -170,7 +170,7 @@ void loop() {
       Serial.printf("HG Water Button %i\n",hgButtonPress);
   }
 
-   if((millis()-lastPubTime)>20000){
+   if((millis()-lastPubTime)>30000){
     if(mqtt.Update()){
       // createEventPayLoad(hgSensors);
       hgSoilFeed.publish(soilDryness,1);
@@ -185,109 +185,136 @@ void loop() {
 // //int displayMode;
 // //int lastDisplayTime;
 
-// displayMode=1;
-// if ((millis()-lastDisplayTime)>2000){
-//   displayMode++;
-//    lastDisplayTime = millis();
-// }
+ 
+ if ((millis()-lastDisplayTime)>5000){
+  displayMode++;
+  if(displayMode==7){
+    displayMode=1;
+  }
+   lastDisplayTime = millis();
+ }
 
-//   if ((displayMode=1)){
+//Screen 1: Intro
+   if ((displayMode==1)){
      display.clearDisplay();
      display.setCursor(0,0);
      display.setTextSize(1);
      display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
      display.display();
-     delay(500);
-//     //displayMode= displayMode+1;
-//   }
+   }
 
-//   if((displayMode=2)){
+//Screen 2: Current Conditions
+   if((displayMode==2)){
     display.setTextSize(1);
     display.setCursor(0,0);
     display.clearDisplay();
-    // display.printf("Screen2 Test Print");
     display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
     display.display();
-    delay(500);
-//     //displayMode=displayMode+1;
-//   }
+   }
 
-//   if((displayMode=3)){
+//Screen 3: Current Conditions contd
+   if((displayMode==3)){
      display.setTextSize(1);
      display.setCursor(0,0);
      display.clearDisplay();
      display.printf("%s at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness,airQuality);
      display.display();
-     delay(500);
-//      //displayMode=displayMode+1;
-//   }
- 
+   }
+
+//Screen 4: Temperature Problems
+  if((displayMode==4)){ 
     if ((tempF>71.5)){     
       displayMessage(2,"I'm hot!");
       tempProblem=1;
-      //delay(500);
     }
     if ((tempF<70.5)){ 
       displayMessage(2,"I'm cold!");
       tempProblem=1;
-      //delay(500);
     }
+  }
 
+//Screen 5: Humidity Problems
+  if((displayMode==5)){
     if ((humidRH <50)){
       displayMessage(2, "The air is\ntoo dry!");
       humidProblem=1;
-      //delay(500);
     }
     if ((humidRH >70)){
       displayMessage(2, "It's too\nhumid!");
       humidProblem=1;
-      //delay(500);
     }
+  }
 
+//Screen 6: Soil Watering Problems
+  if((displayMode==6)){
     if((soilDryness>2500)){
       displayMessage(2, "The soil\nis too\ndry!");
       soilProblem=1;
-      //delay(500);
-    }
+      }
+
     if((soilDryness<1700)){
       displayMessage(2, "I'm\ndrowning!");
       soilProblem=1;
-      //delay(500);
     }
-    
-    Serial.printf("(Sensor value: %i)\n",airQuality);
+  }  
 
-    if (airQuality == AirQualitySensor::FORCE_SIGNAL){
-      Serial.printf("Warning! Excessive pollution! ");
-      displayMessage(1,"Warning!\nExcessive\npollution!");
-    }
-    else if (airQuality == AirQualitySensor::HIGH_POLLUTION) {
-      Serial.printf("High pollution ");
-      displayMessage(1,"High\npollution");
-    } 
-    else if (airQuality == AirQualitySensor::LOW_POLLUTION) {
-        Serial.printf("Low pollution ");
-        displayMessage(1,"Low\npollution");
-    } 
-    else if (airQuality == AirQualitySensor::FRESH_AIR) {
-        displayMessage(1, "Fresh air");
+//Screen 7: Air Quality Read
+    if((displayMode==7)){
+      Serial.printf("(Sensor value: %i)\n",airQuality);
+
+      if (airQuality == AirQualitySensor::FORCE_SIGNAL){
+        Serial.printf("Warning! Excessive pollution! ");
+        displayMessage(1,"Warning!\nExcessive\npollution!");
+      }
+      else if (airQuality == AirQualitySensor::HIGH_POLLUTION) {
+        Serial.printf("High pollution ");
+        displayMessage(1,"High\npollution");
+      } 
+      else if (airQuality == AirQualitySensor::LOW_POLLUTION) {
+          Serial.printf("Low pollution ");
+          displayMessage(1,"Low\npollution");
+
+      } 
+      else if (airQuality == AirQualitySensor::FRESH_AIR) {
+          displayMessage(1, "Fresh air");
+      }
     }
 
+
+//Watering the Soil
+  int waterTimer, lastWaterTimer,waterOn;
+    waterTimer=millis();
+
+    if((soilDryness>2500)){
+      if((waterTimer-lastWaterTimer)>60000){
+        digitalWrite(WATERPIN,HIGH);
+      }
+      if((waterTimer-lastWaterTimer)>60500){
+          digitalWrite(WATERPIN,LOW);
+          lastWaterTimer=millis();
+      }
+
+//NEOPIXELS
   if ((tempProblem == 0) && (humidProblem ==0) && (soilProblem == 0)){
         startPixel=0;
         endPixel= 5;
         pixelFill(startPixel, endPixel, green);
+
+        startPixel=6;
+        endPixel= 11;
+        pixelFill(startPixel, endPixel, 0x000000);
         //displayMessage(2, "I'm happy");
   }
-  else{
+  if ((tempProblem == 1) || (humidProblem ==1) && (soilProblem == 1)){
     startPixel=6;
     endPixel= 11;
     pixelFill(startPixel, endPixel, red);
+
+    startPixel=0;
+    endPixel= 5;
+    pixelFill(startPixel, endPixel, 0x000000);
   }
-// }
-
-  //}
-
+  }
 }
 
 /************************************************************/
