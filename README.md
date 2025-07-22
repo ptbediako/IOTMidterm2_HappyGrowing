@@ -1,6 +1,7 @@
 # IoT Midterm 2 Happy Growing Smart Plant Care System
 ### Authored by Phylicia Bediako
-### Hackster: https://www.hackster.io/projects/b4e59b/edit#attachments
+### Hackster: 
+[https://www.hackster.io/projects/b4e59b/edit#attachments](https://www.hackster.io/ptbediako/hg-smart-plant-care-system-b4e59b)
 
 ## Happy Growing: Intro and Motivation
 The Happy Growing Smart Plant Care System helps simplify and automate plant care with environmental and soil sensors as well as hands-off watering options. As someone who chronically struggles with plant care, I wanted to create a system that would help me better understand what my plants need. The Happy Growing device includes an OLED programmed with messages "from" my plant that clearly communicates its preferences. After listing my plant type and its ideal conditions, the OLED displays the current conditions followed by complaints when the temperature, humidity, or soil conditions aren't quite right.
