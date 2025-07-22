@@ -33,5 +33,5 @@ The Happy Growing Smart Plant Care System helps simplify and automate plant care
 * Plain-English indicator messages when your plant's needs are not being met
 * Easy-to-see control panel lights showing when your plant might be unhappy
 
-##How it works and what it does
+## How it works and what it does
 The system relies on a BME280 and SEEED Grove Air Quality Sensor to measure environmental conditions as well as a capacitive soil moisture sensor to keep track of when the plant needs to be watered. The device includes an automatic mode that waters the plant when the soil reaches a minimum level of moisture and a manual but remote method for watering the plant via an Adafruit dashboard. To the right of the panel, a NeoPixel ring helps illuminate a happy and sad face to help you see if your plant is okay at a glance. The sad face shows when any of the environmental or soil conditions are off, while the happy face lights up when your plant is satisfied.
