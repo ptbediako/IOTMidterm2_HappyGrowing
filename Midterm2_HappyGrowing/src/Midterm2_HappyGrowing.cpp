@@ -79,6 +79,7 @@ void pixelFill(int startPixel, int endPixel, int color);
 
 //Water Pump
 const int WATERPIN=D16;
+int waterTimer, lastWaterTimer;
 
 //Timestamp variables
 String dateTime;
@@ -154,6 +155,38 @@ void loop() {
    humidRH=bme.readHumidity();
    pressPA= bme.readPressure();
    pressInHg=(pressPA * 0.0002952998751);
+
+   if((soilDryness>=1700)&&(soilDryness<=2500)){
+    soilProblem=0;
+   }
+    if((soilDryness>2500)){
+      soilProblem=1;
+      }
+    if((soilDryness<1700)){
+      soilProblem=1;
+    }
+
+  if((humidRH>=50)&&(humidRH<=70)){
+    humidProblem=0;
+  }
+  if ((humidRH <50)){
+    humidProblem=1;
+  }
+  if ((humidRH >70)){
+    humidProblem=1;
+  }
+
+  if((tempF>=65) &&(tempF<=85)){
+    tempProblem=0;
+  }
+  if ((tempF>85)){     
+    tempProblem=1;
+  }
+  if ((tempF<65)){ 
+    tempProblem=1;
+  }
+  Serial.printf("T %i, H %i, S %i", tempProblem, humidProblem, soilProblem);
+
   
   Adafruit_MQTT_Subscribe *subscription;
   while ((subscription = mqtt.readSubscription(100))) {
@@ -161,151 +194,111 @@ void loop() {
       hgButtonPress = atoi((char *)hgButtonSub.lastread);
 
        if(hgButtonPress==1){
-       digitalWrite(WATERPIN,HIGH);
+        digitalWrite(WATERPIN,HIGH);
        }
-       else{
-       digitalWrite(WATERPIN,LOW);
+       if(hgButtonPress==0){
+        digitalWrite(WATERPIN,LOW);
        }
      }
       Serial.printf("HG Water Button %i\n",hgButtonPress);
   }
 
-   if((millis()-lastPubTime)>30000){
+  if((millis()-lastPubTime)>30000){
     if(mqtt.Update()){
-      // createEventPayLoad(hgSensors);
       hgSoilFeed.publish(soilDryness,1);
       hgAirFeed.publish(airQuality,1);
       hgTempFeed.publish(tempF,1);
       hgHumidFeed.publish(humidRH,1);
       hgPressFeed.publish(pressInHg,1);
-     }
+    }
     lastPubTime = millis();
-   }
-  
-// //int displayMode;
-// //int lastDisplayTime;
+  }
 
- 
- if ((millis()-lastDisplayTime)>5000){
+  
+
+
+//Displays
+ if ((millis()-lastDisplayTime)>4000){
   displayMode++;
-  if(displayMode==7){
+  if(displayMode==6){
     displayMode=1;
   }
    lastDisplayTime = millis();
  }
 
 //Screen 1: Intro
-   if ((displayMode==1)){
-     display.clearDisplay();
-     display.setCursor(0,0);
-     display.setTextSize(1);
-     display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
-     display.display();
-   }
+  if ((displayMode==1)){
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.printf("Hi! I'm a\nRED BANANA CROTON\n \nI like\nTemp: 65-85%cF\nHumidity: 50-70%cRH\nWater every 3-5 days",DEGREE,PCT);
+    display.display();
+  }
 
 //Screen 2: Current Conditions
-   if((displayMode==2)){
+  if((displayMode==2)){
     display.setTextSize(1);
     display.setCursor(0,0);
     display.clearDisplay();
-    display.printf("Current Conditions\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nPressure: %0.1f inHG\n",tempF, DEGREE, humidRH, PCT, pressInHg);
+    display.printf("%s at %s\nTemp: %0.1f %cF\nHumidity: %0.1f %cRH\nSoil Dryness: %i\nAirQuality: %i\nPressure: %0.1f inHG",dateMMDD.c_str(), timeHHMM.c_str(), tempF, DEGREE, humidRH, PCT, soilDryness,airQuality, pressInHg);
     display.display();
-   }
+  }
 
-//Screen 3: Current Conditions contd
-   if((displayMode==3)){
-     display.setTextSize(1);
-     display.setCursor(0,0);
-     display.clearDisplay();
-     display.printf("%s at %s\nSoil Dryness: %i\nAirQuality: %i",dateMMDD.c_str(), timeHHMM.c_str(), soilDryness,airQuality);
-     display.display();
-   }
-
-//Screen 4: Temperature Problems
-  if((displayMode==4)){ 
-    if ((tempF>71.5)){     
+//Screen 3: Temperature Problems
+  if((displayMode==3)){ 
+    if ((tempF>85)){     
       displayMessage(2,"I'm hot!");
-      tempProblem=1;
     }
-    if ((tempF<70.5)){ 
+    if ((tempF<65)){ 
       displayMessage(2,"I'm cold!");
-      tempProblem=1;
     }
   }
 
-//Screen 5: Humidity Problems
-  if((displayMode==5)){
+//Screen 4: Humidity Problems
+  if((displayMode==4)){
     if ((humidRH <50)){
       displayMessage(2, "The air is\ntoo dry!");
-      humidProblem=1;
     }
     if ((humidRH >70)){
       displayMessage(2, "It's too\nhumid!");
-      humidProblem=1;
     }
   }
 
-//Screen 6: Soil Watering Problems
-  if((displayMode==6)){
+//Screen 5: Soil Watering Problems
+  if((displayMode==5)){
     if((soilDryness>2500)){
       displayMessage(2, "The soil\nis too\ndry!");
-      soilProblem=1;
       }
 
     if((soilDryness<1700)){
       displayMessage(2, "I'm\ndrowning!");
-      soilProblem=1;
     }
   }  
 
-//Screen 7: Air Quality Read
-    if((displayMode==7)){
-      Serial.printf("(Sensor value: %i)\n",airQuality);
+  //Watering the Soil
+  waterTimer=millis();
 
-      if (airQuality == AirQualitySensor::FORCE_SIGNAL){
-        Serial.printf("Warning! Excessive pollution! ");
-        displayMessage(1,"Warning!\nExcessive\npollution!");
-      }
-      else if (airQuality == AirQualitySensor::HIGH_POLLUTION) {
-        Serial.printf("High pollution ");
-        displayMessage(1,"High\npollution");
-      } 
-      else if (airQuality == AirQualitySensor::LOW_POLLUTION) {
-          Serial.printf("Low pollution ");
-          displayMessage(1,"Low\npollution");
-
-      } 
-      else if (airQuality == AirQualitySensor::FRESH_AIR) {
-          displayMessage(1, "Fresh air");
-      }
+  if((soilDryness>2500)){
+    if((waterTimer-lastWaterTimer)>60000){
+      digitalWrite(WATERPIN,HIGH);
     }
-
-
-//Watering the Soil
-  int waterTimer, lastWaterTimer,waterOn;
-    waterTimer=millis();
-
-    if((soilDryness>2500)){
-      if((waterTimer-lastWaterTimer)>60000){
-        digitalWrite(WATERPIN,HIGH);
-      }
-      if((waterTimer-lastWaterTimer)>60500){
-          digitalWrite(WATERPIN,LOW);
-          lastWaterTimer=millis();
-      }
-
-//NEOPIXELS
-  if ((tempProblem == 0) && (humidProblem ==0) && (soilProblem == 0)){
-        startPixel=0;
-        endPixel= 5;
-        pixelFill(startPixel, endPixel, green);
-
-        startPixel=6;
-        endPixel= 11;
-        pixelFill(startPixel, endPixel, 0x000000);
-        //displayMessage(2, "I'm happy");
+    if((waterTimer-lastWaterTimer)>61000){
+      lastWaterTimer=waterTimer;
+      digitalWrite(WATERPIN,LOW);
+    }
   }
-  if ((tempProblem == 1) || (humidProblem ==1) && (soilProblem == 1)){
+
+//NeoPixels
+  if ((tempProblem == 0) && (humidProblem ==0) && (soilProblem == 0)){
+    startPixel=0;
+    endPixel= 5;
+    pixelFill(startPixel, endPixel, green);
+
+    startPixel=6;
+    endPixel= 11;
+    pixelFill(startPixel, endPixel, 0x000000);
+  }
+  if ((tempProblem == 1) || (humidProblem ==1) || (soilProblem == 1)){
     startPixel=6;
     endPixel= 11;
     pixelFill(startPixel, endPixel, red);
@@ -314,7 +307,22 @@ void loop() {
     endPixel= 5;
     pixelFill(startPixel, endPixel, 0x000000);
   }
+
+  //Air Quality
+  Serial.printf("(Sensor value: %i)\n",airQuality);
+  if (airQuality == AirQualitySensor::FORCE_SIGNAL){
+    Serial.printf("Warning! Excessive pollution!");
+    }
+  if (airQuality == AirQualitySensor::HIGH_POLLUTION) {
+    Serial.printf("High pollution ");
   }
+  if (airQuality == AirQualitySensor::LOW_POLLUTION) {
+    Serial.printf("Low pollution ");
+  }
+  if (airQuality == AirQualitySensor::FRESH_AIR) {
+    Serial.printf("Fresh air ");  
+  }
+
 }
 
 /************************************************************/
@@ -372,18 +380,3 @@ bool MQTT_ping() {
   }
   return pingStatus;
 }
-
-// /************************************************************/
-//  void createEventPayLoad(SensorData happyGrow){
-//    JsonWriterStatic<256> jw;
-//   {
-//     JsonWriterAutoObject obj(&jw);
-
-//     jw.insertKeyValue("Air Quality", happyGrow.airQuality);
-//     jw.insertKeyValue("Soil Dryness", happyGrow.soilDryness);
-//     jw.insertKeyValue("Temperature(F)", happyGrow.tempF);
-//     jw.insertKeyValue("Humidity", happyGrow.humidRH);
-//     jw.insertKeyValue("Air Pressure(Hg)", happyGrow.pressInHg);
-//   }
-//   pubFeed.publish(jw.getBuffer());
-// }
